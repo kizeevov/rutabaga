@@ -1,4 +1,7 @@
+use crate::gui::cleaner::ClearProcess;
+use crate::gui::style::{PrimaryButtonStyle, SecondaryButtonStyle};
 use iced::alignment::{Horizontal, Vertical};
+use iced::futures::channel::oneshot::Sender;
 use iced::{
     button, container, text_input, window::Settings as Window, Alignment, Application, Background,
     Button, Color, Column, Command, Container, Element, Length, Padding, Point, Rectangle,
@@ -6,8 +9,10 @@ use iced::{
 };
 use iced_native::Subscription;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 mod cleaner;
+mod style;
 
 pub struct RutabagaApplication {
     path_folder: PathBuf,
@@ -20,7 +25,7 @@ pub struct RutabagaApplication {
     current_state: RutabagaState,
     progress: Progress,
 
-    path_folder_for_process: Option<PathBuf>,
+    process: Option<ClearProcess>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -45,14 +50,15 @@ enum RutabagaState {
     SelectFolder,
     Processed,
     Finished,
+    Canceled,
     Errored,
 }
 
 #[derive(Debug, Clone, Default)]
 struct Progress {
-    renamed: u64,
-    cleared: u64,
-    total: u64,
+    renamed: usize,
+    cleared: usize,
+    total: usize,
 }
 
 impl RutabagaApplication {
@@ -102,7 +108,18 @@ impl RutabagaApplication {
                 self.stop_button_state.enabled = true;
                 self.start_button_state.enabled = true;
             }
+            RutabagaState::Canceled => {
+                self.path_folder_button_state.enabled = true;
+                self.stop_button_state.enabled = true;
+                self.start_button_state.enabled = true;
+            }
         }
+    }
+
+    fn clear_progress(&mut self) {
+        self.progress.total = 0;
+        self.progress.renamed = 0;
+        self.progress.cleared = 0;
     }
 }
 
@@ -121,7 +138,7 @@ impl Application for RutabagaApplication {
                 stop_button_state: Default::default(),
                 current_state: RutabagaState::SelectFolder,
                 progress: Default::default(),
-                path_folder_for_process: None,
+                process: None,
             },
             Command::perform(async {}, Message::Clear),
         )
@@ -137,11 +154,11 @@ impl Application for RutabagaApplication {
             Message::Clear(_) => {
                 self.path_folder = Default::default();
                 self.current_state = RutabagaState::SelectFolder;
-                self.path_folder_for_process = None;
+                self.process = None;
                 self.change_enabled();
             }
             Message::SelectFolder => {
-                return Command::perform(crate::core::select_folder(), Message::SelectedFolder)
+                return Command::perform(select_folder(), Message::SelectedFolder)
             }
             Message::SelectedFolder(path) => {
                 match path {
@@ -150,23 +167,43 @@ impl Application for RutabagaApplication {
                 }
                 self.change_enabled();
             }
-            Message::ProcessStart => self.path_folder_for_process = Some(self.path_folder.clone()),
-            Message::ProcessCancel => return Command::perform(async {}, Message::Clear),
+            Message::ProcessStart => {
+                let process = ClearProcess::new(self.path_folder.clone());
+                self.process = Some(process)
+            }
+            Message::ProcessCancel => {
+                if let Some(process) = &self.process {
+                    process.cancel()
+                }
+
+                self.clear_progress();
+                return Command::perform(async {}, Message::Clear);
+            }
             Message::Process(progress) => match progress {
-                cleaner::Progress::Started => {
+                cleaner::Progress::Started { total } => {
+                    self.progress.total = total;
                     self.current_state = RutabagaState::Processed;
                     self.change_enabled();
                 }
-                cleaner::Progress::Advanced { .. } => {}
+                cleaner::Progress::Advanced { renamed, cleared } => {
+                    self.progress.renamed = renamed;
+                    self.progress.cleared = cleared;
+                }
                 cleaner::Progress::Finished => {
-                    self.path_folder_for_process = None;
+                    self.process = None;
                     self.current_state = RutabagaState::Finished;
                     self.change_enabled();
                 }
                 cleaner::Progress::Errored => {
-                    self.path_folder_for_process = None;
-                    self.path_folder_for_process = None;
-                    self.current_state = RutabagaState::Finished;
+                    self.process = None;
+                    self.current_state = RutabagaState::Errored;
+                    self.change_enabled();
+                }
+                cleaner::Progress::Canceled => {
+                    self.process = None;
+                    self.current_state = RutabagaState::Canceled;
+                    self.change_enabled();
+                    self.clear_progress();
                 }
             },
         }
@@ -206,9 +243,9 @@ impl Application for RutabagaApplication {
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
-        match &self.path_folder_for_process {
+        match &self.process {
             None => Subscription::none(),
-            Some(path) => cleaner::clear_folder(path.clone()).map(Message::Process),
+            Some(process) => cleaner::clear_folder(process.clone()).map(Message::Process),
         }
     }
 }
@@ -224,7 +261,8 @@ fn button<'a>(
         Text::new(label)
             .horizontal_alignment(Horizontal::Center)
             .vertical_alignment(Vertical::Center),
-    );
+    )
+    .padding(Padding::from([4, 12]));
 
     match enabled {
         true => button.on_press(message),
@@ -244,12 +282,15 @@ fn folder_path<'a>(
                 .width(Length::Fill)
                 .padding(Padding::from([4, 8, 4, 8])),
         )
-        .push(button(
-            &mut path_folder_button_state.state,
-            "Select folder",
-            Message::SelectFolder,
-            path_folder_button_state.enabled,
-        ))
+        .push(
+            button(
+                &mut path_folder_button_state.state,
+                "Select folder",
+                Message::SelectFolder,
+                path_folder_button_state.enabled,
+            )
+            .style(SecondaryButtonStyle),
+        )
         .align_items(Alignment::Center)
 }
 
@@ -259,6 +300,7 @@ fn state_indicator<'a>(state: &RutabagaState) -> iced_native::widget::text::Text
         RutabagaState::Processed => ("In process...", Color::from_rgb8(229, 178, 72)),
         RutabagaState::Finished => ("Completed", Color::from_rgb8(93, 202, 107)),
         RutabagaState::Errored => ("Error", Color::from_rgb8(227, 72, 72)),
+        RutabagaState::Canceled => ("Canceled", Color::from_rgb8(227, 72, 72)),
     };
 
     Text::new(text)
@@ -274,21 +316,27 @@ fn start_stop_button<'a>(
 ) -> Row<'a, Message> {
     Row::new()
         .spacing(8)
-        .push(button(
-            &mut stop_button_state.state,
-            "Cancel",
-            Message::ProcessCancel,
-            stop_button_state.enabled,
-        ))
-        .push(button(
-            &mut start_button_state.state,
-            "Start",
-            Message::ProcessStart,
-            start_button_state.enabled,
-        ))
+        .push(
+            button(
+                &mut stop_button_state.state,
+                "Cancel",
+                Message::ProcessCancel,
+                stop_button_state.enabled,
+            )
+            .style(SecondaryButtonStyle),
+        )
+        .push(
+            button(
+                &mut start_button_state.state,
+                "Start",
+                Message::ProcessStart,
+                start_button_state.enabled,
+            )
+            .style(PrimaryButtonStyle),
+        )
 }
 
-fn progress<'a>(renamed: u64, cleared: u64, total: u64) -> Element<'a, Message> {
+fn progress<'a>(renamed: usize, cleared: usize, total: usize) -> Element<'a, Message> {
     Row::new()
         .spacing(8)
         .push(
@@ -325,4 +373,13 @@ fn line<'a>() -> Element<'a, Message> {
         .height(Length::Units(1))
         .width(Length::Fill)
         .into()
+}
+
+async fn select_folder() -> Option<PathBuf> {
+    let path = rfd::AsyncFileDialog::new()
+        .set_title("Folder selection")
+        .pick_folder()
+        .await;
+
+    path.map_or(None, |f| Some(f.path().to_path_buf()))
 }

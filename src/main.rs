@@ -2,7 +2,6 @@
 
 use crate::gui::RutabagaApplication;
 
-mod core;
 mod gui;
 
 #[tokio::main]

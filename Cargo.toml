@@ -8,5 +8,7 @@ anyhow = "1.0.64"
 iced = {version = "0.4.2", features = ["svg", "canvas", "tokio"]}
 iced_futures = "0.4.1"
 iced_native = "0.5.1"
+itertools = "0.10.3"
+parking_lot = "0.12.1"
 rfd = "0.10.0"
-tokio = { version = "1.21.0", features = ["macros", "fs", "rt-multi-thread"]}
+tokio = { version = "1.21.0", features = ["macros", "fs", "rt-multi-thread", "sync"]}
