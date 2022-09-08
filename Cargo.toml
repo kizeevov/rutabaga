@@ -2,6 +2,7 @@
 name = "rutabaga"
 version = "0.1.2"
 edition = "2021"
+description = "File cleaner app"
 
 [dependencies]
 anyhow = "1.0.64"
@@ -12,3 +13,18 @@ itertools = "0.10.3"
 parking_lot = "0.12.1"
 rfd = "0.10.0"
 tokio = { version = "1.21.0", features = ["macros", "fs", "rt-multi-thread", "sync"]}
+
+[package.metadata.bundle]
+name = "Rutabaga"
+# identifier = "com.doe.exampleapplication"
+icon = ["./resources/icons/32x32.png", "./resources/icons/128x128.png", "../resources/icons/128x128@2x.png"]
+version = "0.1.2"
+# resources = ["assets", "images/**/*.png", "secrets/public_key.txt"]
+copyright = "Copyright (c) Oleg Kizeev 2022. All rights reserved."
+category = "Developer Tool"
+short_description = "File cleaner app"
+long_description = """
+
+"""
+deb_depends = ["libgl1-mesa-glx", "libsdl2-2.0-0 (>= 2.0.5)"]
+# osx_frameworks = ["SDL2"]
