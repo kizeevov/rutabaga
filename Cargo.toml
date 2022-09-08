@@ -4,4 +4,9 @@ version = "0.1.2"
 edition = "2021"
 
 [dependencies]
-iced = "0.4"
+anyhow = "1.0.64"
+iced = {version = "0.4.2", features = ["svg", "canvas", "tokio"]}
+iced_futures = "0.4.1"
+iced_native = "0.5.1"
+rfd = "0.10.0"
+tokio = { version = "1.21.0", features = ["macros", "fs", "rt-multi-thread"]}
