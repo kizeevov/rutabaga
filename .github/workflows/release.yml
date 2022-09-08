@@ -48,7 +48,7 @@ jobs:
           override: true
 
       - name: Build for mac
-        run: cargo build --all --release && strip target/release/rust-aha-cli && mv target/release/rust-aha-cli target/release/rutabaga
+        run: cargo build --all --release && strip target/release/rutabaga && mv target/release/rutabaga target/release/rutabaga
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v1-release
