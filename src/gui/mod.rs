@@ -1,15 +1,13 @@
 use crate::gui::cleaner::ClearProcess;
 use crate::gui::style::{PrimaryButtonStyle, SecondaryButtonStyle};
 use iced::alignment::{Horizontal, Vertical};
-use iced::futures::channel::oneshot::Sender;
 use iced::{
     button, container, text_input, window::Settings as Window, Alignment, Application, Background,
-    Button, Color, Column, Command, Container, Element, Length, Padding, Point, Rectangle,
-    Renderer, Row, Settings, Size, Text, TextInput,
+    Button, Color, Column, Command, Container, Element, Length, Padding, Renderer, Row, Settings,
+    Text, TextInput,
 };
 use iced_native::Subscription;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 mod cleaner;
 mod style;

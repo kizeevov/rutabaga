@@ -1,16 +1,11 @@
-use iced::futures::channel::oneshot::{self, Receiver, Sender};
-use iced::futures::StreamExt;
 use iced_native::{subscription, Subscription};
 use itertools::Itertools;
-use std::arch::aarch64::vreinterpret_u8_f32;
-use std::fs::{self, DirEntry, ReadDir};
-use std::future::Future;
+use std::fs::{self, DirEntry};
 use std::hash::{Hash, Hasher};
 use std::ops::Not;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
 
 pub fn clear_folder(process: ClearProcess) -> Subscription<Progress> {
