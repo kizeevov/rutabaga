@@ -1,8 +1,9 @@
 name: Release
 
 on:
-  release:
-      types: [created]
+  push:
+    tags:
+    - '*'
 
 env:
   CARGO_TERM_COLOR: always
@@ -46,9 +47,12 @@ jobs:
           target: x86_64-apple-darwin
           default: true
           override: true
+          
+      - name: Install cargo-bundle
+        run: cargo install cargo-bundle
 
       - name: Build for mac
-        run: cargo build --all --release && strip target/release/rutabaga && mv target/release/rutabaga target/release/rutabaga
+        run: cargo bundle --all --release && strip target/release/rutabaga && mv target/release/rutabaga target/release/rutabaga
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v1-release
